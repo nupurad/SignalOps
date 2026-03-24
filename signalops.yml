@@ -1,0 +1,7 @@
+services:
+  example-service:
+    base_url: https://example.com
+    endpoints:
+      - path: /
+        method: GET
+        interval: 1

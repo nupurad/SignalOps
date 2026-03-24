@@ -1,0 +1,66 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on: [zookeeper]
+    ports: ["9092:9092"]
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_USER: signalops
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: signalops
+    volumes: [tsdb_data:/var/lib/postgresql/data]
+
+  api:
+    build: ./backend
+    ports: ["8000:8000"]
+    depends_on: [timescaledb]
+    env_file: .env
+    volumes: ["./signalops.yml:/app/signalops.yml:ro"]
+
+  checker-worker:
+    build: ./workers
+    command: python checker.py
+    depends_on: [kafka]
+    env_file: .env
+    volumes: ["./signalops.yml:/app/signalops.yml:ro"]
+
+  consumer-db:
+    build: ./workers
+    command: python consumer_db.py
+    depends_on: [kafka, timescaledb]
+    env_file: .env
+
+  consumer-prometheus:
+    build: ./workers
+    command: python consumer_prometheus.py
+    ports: ["8001:8001"]
+    depends_on: [kafka]
+    env_file: .env
+
+  consumer-anomaly:
+    build: ./workers
+    command: python consumer_anomaly.py
+    depends_on: [kafka]
+    env_file: .env
+
+  prometheus:
+    image: prom/prometheus
+    volumes: [./prometheus.yml:/etc/prometheus/prometheus.yml]
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana
+    ports: ["3001:3000"]
+
+volumes:
+  tsdb_data:
