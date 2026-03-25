@@ -27,12 +27,6 @@ services:
     env_file: .env
     volumes: ["./signalops.yml:/app/signalops.yml:ro"]
 
-  checker-worker:
-    build: ./workers
-    command: python checker.py
-    depends_on: [kafka]
-    env_file: .env
-    volumes: ["./signalops.yml:/app/signalops.yml:ro"]
 
   consumer-db:
     build: ./workers
@@ -53,6 +47,15 @@ services:
     depends_on: [kafka]
     env_file: .env
 
+  scheduler:
+    build: ./workers
+    command: sh /app/scheduler.sh
+    depends_on: [kafka]
+    env_file: .env
+    volumes:
+      - "./signalops.yml:/app/signalops.yml:ro"
+      - "signalops_state:/app/state"
+
   prometheus:
     image: prom/prometheus
     volumes: [./prometheus.yml:/etc/prometheus/prometheus.yml]
@@ -64,3 +67,4 @@ services:
 
 volumes:
   tsdb_data:
+  signalops_state:
