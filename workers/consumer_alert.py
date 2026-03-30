@@ -7,8 +7,8 @@ from kafka import KafkaConsumer
 ALERT_COOLDOWN_SECONDS = int(os.getenv("ALERT_COOLDOWN_SECONDS", "300"))
 
 consumer = KafkaConsumer(
-    "health.checks",
-    bootstrap_servers=os.getenv("KAFKA_BROKER"),
+    "health-results",
+    bootstrap_servers=os.getenv("KAFKA_BROKER", "localhost:9092"),
     value_deserializer=lambda m: json.loads(m.decode()),
     group_id="down-alerts",
 )
@@ -26,7 +26,7 @@ def send_alert(event):
     if not webhook:
         return
     text = (
-        f"ALERT: {event['service']}{event['endpoint']} is DOWN "
+        f"ALERT: {event['id']} is DOWN ({event['url']}) "
         f"(latency={event.get('latency_ms', 'n/a')}ms)"
     )
     requests.post(webhook, json={"text": text}, timeout=10)
@@ -34,10 +34,10 @@ def send_alert(event):
 
 for message in consumer:
     event = message.value
-    if event.get("status") != "DOWN":
+    if event.get("healthy") is True:
         continue
 
-    key = f"{event['service']}:{event['endpoint']}"
+    key = f"{event['id']}:{event['url']}"
     now = time.time()
     if should_alert(key, now):
         send_alert(event)

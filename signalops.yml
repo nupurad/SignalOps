@@ -5,7 +5,7 @@ services:
       - path: /posts
         method: GET
         interval: 1
-      - path: /comments
+      - path: /users
         method: GET
         interval: 1
       - path: /invalid-endpoint

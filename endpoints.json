@@ -1,0 +1,9 @@
+[
+  {"id": "ep1", "url": "https://jsonplaceholder.typicode.com/posts"},
+  {"id": "ep2", "url": "https://jsonplaceholder.typicode.com/comments"},
+  {"id": "ep3", "url": "https://jsonplaceholder.typicode.com/albums"},
+  {"id": "ep4", "url": "https://jsonplaceholder.typicode.com/photos"},
+  {"id": "ep5", "url": "https://jsonplaceholder.typicode.com/todos"},
+  {"id": "ep6", "url": "https://jsonplaceholder.typicode.com/users"},
+  {"id": "ep7", "url": "https://jsonplaceholder.typicode.com/invalid-endpoint"}
+]
