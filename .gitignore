@@ -22,6 +22,8 @@ pnpm-debug.log*
 # Vite/React
 frontend/dist/
 frontend/.vite/
+frontend/.next/
+.next/
 
 # Docker
 **/.docker/
