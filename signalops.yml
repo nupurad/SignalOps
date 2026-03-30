@@ -1,7 +1,14 @@
 services:
-  example-service:
-    base_url: https://example.com
+  demo-service:
+    base_url: https://jsonplaceholder.typicode.com
     endpoints:
-      - path: /
+      - path: /posts
         method: GET
         interval: 1
+      - path: /users
+        method: GET
+        interval: 1
+      - path: /invalid-endpoint
+        method: GET
+        interval: 1
+      

@@ -11,6 +11,20 @@ services:
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on: [kafka]
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["/app/create-topics.sh"]
+    environment:
+      KAFKA_BROKER: kafka:9092
+    volumes:
+      - "./workers/create-topics.sh:/app/create-topics.sh:ro"
+    restart: "no"
 
   timescaledb:
     image: timescale/timescaledb:latest-pg15
@@ -25,7 +39,11 @@ services:
     ports: ["8000:8000"]
     depends_on: [timescaledb]
     env_file: .env
-    volumes: ["./signalops.yml:/app/signalops.yml:ro"]
+    volumes:
+      - "./signalops.yml:/app/signalops.yml:ro"
+      - "./endpoints.json:/app/endpoints.json:ro"
+    environment:
+      ENDPOINTS_FILE: /app/endpoints.json
 
 
   consumer-db:
@@ -33,6 +51,7 @@ services:
     command: python consumer_db.py
     depends_on: [kafka, timescaledb]
     env_file: .env
+    restart: always
 
   consumer-prometheus:
     build: ./workers
@@ -40,21 +59,69 @@ services:
     ports: ["8001:8001"]
     depends_on: [kafka]
     env_file: .env
+    restart: always
 
   consumer-anomaly:
     build: ./workers
     command: python consumer_anomaly.py
     depends_on: [kafka]
     env_file: .env
+    restart: always
 
-  scheduler:
+  consumer-alert:
     build: ./workers
-    command: sh /app/scheduler.sh
+    command: python consumer_alert.py
     depends_on: [kafka]
     env_file: .env
+    restart: always
+
+  producer:
+    build: ./workers
+    command: python producer.py
+    depends_on: [kafka]
+    env_file: .env
+    environment:
+      KAFKA_BROKER: ${KAFKA_BROKER:-kafka:9092}
     volumes:
-      - "./signalops.yml:/app/signalops.yml:ro"
-      - "signalops_state:/app/state"
+      - "./endpoints.json:/app/endpoints.json:ro"
+    restart: always
+
+  consumer-1:
+    build: ./workers
+    command: python consumer.py
+    depends_on: [kafka]
+    env_file: .env
+    environment:
+      KAFKA_BROKER: ${KAFKA_BROKER:-kafka:9092}
+    restart: always
+
+  consumer-2:
+    build: ./workers
+    command: python consumer.py
+    depends_on: [kafka]
+    env_file: .env
+    environment:
+      KAFKA_BROKER: ${KAFKA_BROKER:-kafka:9092}
+    restart: always
+
+  consumer-3:
+    build: ./workers
+    command: python consumer.py
+    depends_on: [kafka]
+    env_file: .env
+    environment:
+      KAFKA_BROKER: ${KAFKA_BROKER:-kafka:9092}
+    restart: always
+
+  frontend:
+    build: ./frontend
+    ports: ["3000:3000"]
+    depends_on: [api]
+    environment:
+      API_BASE: http://api:8000
+    volumes:
+      - "./frontend:/app"
+      - "./frontend/node_modules:/app/node_modules"
 
   prometheus:
     image: prom/prometheus
@@ -67,4 +134,3 @@ services:
 
 volumes:
   tsdb_data:
-  signalops_state:

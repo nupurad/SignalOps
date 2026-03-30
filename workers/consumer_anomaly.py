@@ -11,8 +11,8 @@ windows = defaultdict(lambda: deque(maxlen=120))
 models = {}
 
 consumer = KafkaConsumer(
-    "health.checks",
-    bootstrap_servers=os.getenv("KAFKA_BROKER"),
+    "health-results",
+    bootstrap_servers=os.getenv("KAFKA_BROKER", "localhost:9092"),
     value_deserializer=lambda m: json.loads(m.decode()),
     group_id="anomaly-detector",
 )
@@ -49,7 +49,7 @@ def send_alert(event, latency, score):
         webhook,
         json={
             "text": (
-                f"ALERT: {event['service']}{event['endpoint']} "
+                f"ALERT: {event['id']} ({event['url']}) "
                 f"latency={latency}ms (score={score:.2f})"
             )
         },
@@ -59,7 +59,7 @@ def send_alert(event, latency, score):
 
 for message in consumer:
     e = message.value
-    key = f"{e['service']}{e['endpoint']}"
+    key = f"{e['id']}:{e['url']}"
     latency = e["latency_ms"]
     windows[key].append(latency)
 
