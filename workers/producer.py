@@ -1,27 +1,42 @@
 import json
 import os
 import time
-from kafka import KafkaProducer
+from confluent_kafka import Producer
 
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
 ENDPOINTS_FILE = os.getenv("ENDPOINTS_FILE", "/app/endpoints.json")
 TOPIC = "endpoint-checks"
 
+
 def load_endpoints():
     with open(ENDPOINTS_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
+def delivery_report(err, msg):
+    if err is not None:
+        print(f"Delivery failed: {err}", flush=True)
+
+
 def create_producer():
-    return KafkaProducer(
-        bootstrap_servers=KAFKA_BROKER,
-        enable_idempotence=True,
-        key_serializer=lambda k: k.encode("utf-8"),
-        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+    # Idempotent producer settings
+    return Producer(
+        {
+            "bootstrap.servers": KAFKA_BROKER,
+            "enable.idempotence": True,
+            "acks": "all",
+            "retries": 5,
+            "linger.ms": 5,
+        }
     )
 
+
 def main():
-    print(f"Producer starting. Broker={KAFKA_BROKER} endpoints={ENDPOINTS_FILE}", flush=True)
-    
+    print(
+        f"Producer starting. Broker={KAFKA_BROKER} endpoints={ENDPOINTS_FILE}",
+        flush=True,
+    )
+
     producer = create_producer()
 
     while True:
@@ -34,7 +49,12 @@ def main():
                 if not ep_id or not url:
                     continue
                 payload = {"id": ep_id, "url": url}
-                producer.send(TOPIC, key=ep_id, value=payload)
+                producer.produce(
+                    TOPIC,
+                    key=ep_id.encode("utf-8"),
+                    value=json.dumps(payload).encode("utf-8"),
+                    on_delivery=delivery_report,
+                )
                 print(f"Produced: id={ep_id} url={url}", flush=True)
 
             producer.flush()
