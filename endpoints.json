@@ -1,9 +1,28 @@
 [
-  {"id": "ep1", "url": "https://jsonplaceholder.typicode.com/posts"},
-  {"id": "ep2", "url": "https://jsonplaceholder.typicode.com/comments"},
-  {"id": "ep3", "url": "https://jsonplaceholder.typicode.com/albums"},
-  {"id": "ep4", "url": "https://jsonplaceholder.typicode.com/photos"},
-  {"id": "ep5", "url": "https://jsonplaceholder.typicode.com/todos"},
-  {"id": "ep6", "url": "https://jsonplaceholder.typicode.com/users"},
-  {"id": "ep7", "url": "https://jsonplaceholder.typicode.com/invalid-endpoint"}
+  {
+    "id": "ep1",
+    "url": "https://jsonplaceholder.typicode.com/posts",
+    "method": "GET",
+    "expected_status": 200
+  },
+  {
+    "id": "ep2",
+    "url": "https://jsonplaceholder.typicode.com/posts",
+    "method": "POST",
+    "payload": {"title": "signalops", "body": "health check", "userId": 1},
+    "expected_status": 201
+  },
+  {
+    "id": "ep3",
+    "url": "https://jsonplaceholder.typicode.com/posts/1",
+    "method": "PUT",
+    "payload": {"id": 1, "title": "signalops", "body": "update", "userId": 1},
+    "expected_status": 200
+  },
+  {
+    "id": "ep4",
+    "url": "https://jsonplaceholder.typicode.com/posts/1",
+    "method": "DELETE",
+    "expected_status": 200
+  }
 ]

@@ -47,14 +47,43 @@ def create_producer():
     )
 
 
-def check_endpoint(url: str):
+def resolve_env_var(value: str):
+    if value and value.startswith("${") and value.endswith("}"):
+        var_name = value[2:-1]
+        return os.getenv(var_name, value)
+    return value
+
+
+def build_headers(auth):
+    if not auth:
+        return {}
+    auth_type = auth.get("type")
+    token = resolve_env_var(auth.get("token"))
+    if auth_type == "bearer" and token:
+        return {"Authorization": f"Bearer {token}"}
+    if auth_type == "api_key" and token:
+        header = auth.get("header", "X-API-Key")
+        return {header: token}
+    return {}
+
+
+def check_endpoint(url, method="GET", payload=None, expected_status=200, auth=None):
     start = time.time()
     status_code = None
     healthy = False
     try:
-        resp = httpx.get(url, timeout=5)
+        headers = build_headers(auth)
+        method_up = (method or "GET").upper()
+        if method_up == "POST":
+            resp = httpx.post(url, json=payload, headers=headers, timeout=5)
+        elif method_up == "DELETE":
+            resp = httpx.delete(url, headers=headers, timeout=5)
+        elif method_up == "PUT":
+            resp = httpx.put(url, json=payload, headers=headers, timeout=5)
+        else:
+            resp = httpx.get(url, headers=headers, timeout=5)
         status_code = resp.status_code
-        healthy = status_code < 400
+        healthy = status_code == expected_status
     except Exception:
         # Any network error counts as unhealthy.
         healthy = False
@@ -91,10 +120,17 @@ def main():
                     flush=True,
                 )
 
-                status_code, latency_ms, healthy = check_endpoint(url)
+                method = event.get("method", "GET")
+                expected_status = event.get("expected_status")
+                payload_in = event.get("payload")
+                auth = event.get("auth")
+                status_code, latency_ms, healthy = check_endpoint(
+                    url, method, payload_in, expected_status, auth
+                )
                 payload = {
                     "id": ep_id,
                     "url": url,
+                    "method": method,
                     "status_code": status_code,
                     "latency_ms": latency_ms,
                     "healthy": healthy,

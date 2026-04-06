@@ -8,9 +8,25 @@ ENDPOINTS_FILE = os.getenv("ENDPOINTS_FILE", "/app/endpoints.json")
 TOPIC = "endpoint-checks"
 
 
+def resolve_env(value):
+    if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+        env_key = value[2:-1]
+        return os.getenv(env_key, "")
+    return value
+
+
+def resolve_config(obj):
+    if isinstance(obj, dict):
+        return {k: resolve_config(resolve_env(v)) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [resolve_config(v) for v in obj]
+    return resolve_env(obj)
+
+
 def load_endpoints():
     with open(ENDPOINTS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+    return resolve_config(data)
 
 
 def delivery_report(err, msg):
@@ -48,7 +64,14 @@ def main():
                 url = ep.get("url")
                 if not ep_id or not url:
                     continue
-                payload = {"id": ep_id, "url": url}
+                payload = {
+                    "id": ep_id,
+                    "url": url,
+                    "method": ep.get("method", "GET"),
+                    "payload": ep.get("payload", None),
+                    "expected_status": ep.get("expected_status", 200),
+                    "auth": ep.get("auth", None),
+                }
                 producer.produce(
                     TOPIC,
                     key=ep_id.encode("utf-8"),

@@ -37,10 +37,26 @@ def get_db():
     finally:
         db.close()
 
+def resolve_env(value):
+    if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+        env_key = value[2:-1]
+        return os.getenv(env_key, "")
+    return value
+
+
+def resolve_config(obj):
+    if isinstance(obj, dict):
+        return {k: resolve_config(resolve_env(v)) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [resolve_config(v) for v in obj]
+    return resolve_env(obj)
+
+
 def load_endpoints():
     endpoints_file = os.getenv("ENDPOINTS_FILE", "/app/endpoints.json")
     with open(endpoints_file, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+    return resolve_config(data)
 
 @app.on_event("startup")
 def startup():
@@ -77,8 +93,8 @@ def get_monitors(db: Session = Depends(get_db)):
                 "service": service,
                 "endpoint": endpoint_path,
                 "url": url,
-                "method": "GET",
-                "interval": 1,
+                "method": ep.get("method", "GET"),
+                "interval": ep.get("interval", 1),
                 "is_active": True,
                 "status": latest.status if latest else None,
                 "latency_ms": latest.latency_ms if latest else None,
